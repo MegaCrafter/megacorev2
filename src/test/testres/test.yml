@@ -1,0 +1,26 @@
+title: "Menü - Sayfa %page%"
+rows: 6
+#type: hopper
+
+option-buttons:
+  prev page:
+    item: prev-page-item
+    x: 3
+    y: 5
+
+  next page:
+    item: next-page-item
+    x: 5
+    y: 5
+
+  barrier:
+    item: barrier-glass
+    slot: 36,37,38,39,40,41,42,43,44
+
+#external-first: 0
+external-last: 35 # inclusive
+
+external-items:
+  - ref-item
+  - ...
+
