@@ -18,7 +18,7 @@
     </build>
 
     <groupId>com.objectvilatile.megacorev2</groupId>
-    <artifactId>MegaCore V2</artifactId>
+    <artifactId>MegaCoreV2</artifactId>
     <version>0.0.1</version>
 
     <repositories>
