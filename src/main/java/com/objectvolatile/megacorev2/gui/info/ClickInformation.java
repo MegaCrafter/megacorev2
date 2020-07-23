@@ -1,30 +1,29 @@
-package com.objectvolatile.megacorev2.gui;
+package com.objectvolatile.megacorev2.gui.info;
 
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.ItemStack;
 
-public class OptionButtonInformation {
+public class ClickInformation {
 
     private Player player;
-    private String field;
+    private ClickType clickType;
     private ItemStack item;
     private int slot;
-    private GuiPage page;
 
-    public OptionButtonInformation(Player player, String field, ItemStack item, int slot, GuiPage page) {
+    public ClickInformation(Player player, ClickType clickType, ItemStack item, int slot) {
         this.player = player;
-        this.field = field;
+        this.clickType = clickType;
         this.item = item;
         this.slot = slot;
-        this.page = page;
     }
 
     public Player player() {
         return player;
     }
 
-    public String field() {
-        return field;
+    public ClickType clickType() {
+        return clickType;
     }
 
     public ItemStack item() {
@@ -35,7 +34,4 @@ public class OptionButtonInformation {
         return slot;
     }
 
-    public GuiPage page() {
-        return page;
-    }
 }

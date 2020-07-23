@@ -1,6 +1,7 @@
-package com.objectvolatile.megacorev2.util;
+package com.objectvolatile.megacorev2.util.item;
 
 import com.objectvolatile.megacorev2.MegaCore;
+import com.objectvolatile.megacorev2.util.MUtils;
 import org.bukkit.enchantments.Enchantment;
 
 import java.util.Locale;

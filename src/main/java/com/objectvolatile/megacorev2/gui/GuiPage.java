@@ -1,39 +1,45 @@
 package com.objectvolatile.megacorev2.gui;
 
 import com.objectvolatile.megacorev2.ItemRegistry;
-import com.objectvolatile.megacorev2.util.ItemEditor;
+import com.objectvolatile.megacorev2.gui.info.ButtonInformation;
+import com.objectvolatile.megacorev2.gui.info.ClickInformation;
+import com.objectvolatile.megacorev2.gui.info.OptionButtonInformation;
 import com.objectvolatile.megacorev2.util.MUtils;
+import com.objectvolatile.megacorev2.util.item.ItemEditor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class GuiPage implements InventoryHolder {
 
-    private Map<Integer, SlotItemFieldPair> savedSlots = new HashMap<>();
-    private Map<Integer, SlotItemFieldPair> currentSlots = new HashMap<>();
+    private final Map<Integer, SlotItemFieldPair> savedSlots = new HashMap<>();
+    private final Map<Integer, SlotItemFieldPair> currentSlots = new HashMap<>();
+    private final Map<String, List<Integer>> slots = new HashMap<>();
 
     private boolean shouldUpdateTitle = false;
 
-    private String title = null;
-    private InventoryType type = null;
-    private int rows = -1;
+    private final String title;
+    private final InventoryType type;
+    private final int rows;
 
-    private GuiInstance guiInstance;
+    private final GuiInstance guiInstance;
     private Inventory inventory;
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
-    public GuiResponse handleClick(Player p, String field, ItemStack item, int slot) {
+    public GuiResponse handleClick(Player p, String field, ClickType clickType, ItemStack item, int slot) {
         if (field.equals("prev page")) {
             guiInstance.handlePrevPage(p, this);
             return GuiResponse.CANCEL;
@@ -45,10 +51,31 @@ public final class GuiPage implements InventoryHolder {
         }
 
         if (field.equals(GuiManager.EXTERNAL_FIELD)) {
-            return guiInstance.handleExternalItem(p, item);
+            return guiInstance.handleExternalItem(new ButtonInformation(p, clickType, item, slot, this));
+        } else if (field.equals(GuiManager.OTHERINV_FIELD)) {
+            return guiInstance.handleOtherInventory(new ClickInformation(p, clickType, item, slot));
         } else {
-            return guiInstance.handleOptionButton(new OptionButtonInformation(p, field, item, slot, this));
+            GuiResponse res = guiInstance.handleOptionButton(new OptionButtonInformation(p, field, clickType, item, slot, this));
+
+            if (res == GuiResponse.NOT_HANDLED) {
+                applyCommand(p, field);
+                res = GuiResponse.CANCEL;
+            }
+
+            return res;
         }
+    }
+
+    public void handleClose(Player p) {
+        guiInstance.handleClose(p, this);
+    }
+
+    public boolean canPutItems() {
+        return guiInstance.canPutItems;
+    }
+
+    public void applyCommand(Player p, String field) {
+        guiInstance.applyCommand(p, field);
     }
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
@@ -78,10 +105,26 @@ public final class GuiPage implements InventoryHolder {
     public void addOptionButton(int slot, String slotField, String itemField) {
         savedSlots.put(slot, new SlotItemFieldPair(slotField, itemField));
         currentSlots.put(slot, new SlotItemFieldPair(slotField, itemField));
+
+        List<Integer> list = slots.get(slotField);
+        if (list == null) {
+            list = new ArrayList<>();
+        }
+        list.add(slot);
+
+        slots.put(slotField, list);
     }
 
     public void removeOptionButton(int slot) {
         savedSlots.remove(slot);
+
+        slots.getOrDefault(getSlotField(slot), new ArrayList<>()).remove((Integer)slot);
+    }
+
+    public void setItem(String slotField, String itemField) {
+        for (int slot : getSlots(slotField)) {
+            addOptionButton(slot, slotField, itemField);
+        }
     }
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
@@ -94,6 +137,10 @@ public final class GuiPage implements InventoryHolder {
         return currentSlots.getOrDefault(slot, new SlotItemFieldPair(GuiManager.EXTERNAL_FIELD, "")).slotField();
     }
 
+    List<Integer> getSlots(String slotField) {
+        return new ArrayList<>(slots.getOrDefault(slotField, new ArrayList<>()));
+    }
+
     @Override
     public Inventory getInventory() {
         return inventory;
@@ -104,25 +151,39 @@ public final class GuiPage implements InventoryHolder {
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
     void openFor(Player p, String... replacements) {
-        if (shouldUpdateTitle) {
+        openFor(p, true, replacements);
+    }
+
+    void openFor(Player p, boolean update, String... replacements) {
+        if (shouldUpdateTitle && update) {
             updateFully(replacements);
         }
 
-        updateOptionItems(replacements);
+        if (update) updateOptionItems(replacements);
 
         p.openInventory(inventory);
     }
 
     void openFor(List<HumanEntity> entities, String... replacements) {
-        if (shouldUpdateTitle) {
+        openFor(entities, true, replacements);
+    }
+
+    void openFor(List<HumanEntity> entities, boolean update, String... replacements) {
+        if (shouldUpdateTitle && update) {
             updateFully(replacements);
         }
 
-        updateOptionItems(replacements);
+        if (update) updateOptionItems(replacements);
 
         for (HumanEntity entity : entities) {
             entity.openInventory(inventory);
         }
+    }
+
+    synchronized void closeForAll() {
+        ArrayList<HumanEntity> list = new ArrayList<>(inventory.getViewers());
+
+        list.forEach(HumanEntity::closeInventory);
     }
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
@@ -131,6 +192,7 @@ public final class GuiPage implements InventoryHolder {
     ///////////////////////////////////////////////////////////////////////////////////
     public void updateOptionItems(String... replacements) {
         for (Integer i : savedSlots.keySet()) {
+            if (savedSlots.get(i).itemField() == null) continue;
             updateOptionItem(i, replacements);
         }
     }
@@ -162,56 +224,54 @@ public final class GuiPage implements InventoryHolder {
             }
         } else {
             if (title != null) {
-                inventory = Bukkit.createInventory(this, rows, MUtils.fastReplace(title, replacements));
+                inventory = Bukkit.createInventory(this, rows*9, MUtils.fastReplace(title, replacements));
             } else {
-                inventory = Bukkit.createInventory(this, rows);
+                inventory = Bukkit.createInventory(this, rows*9);
             }
         }
 
+        this.shouldUpdateTitle = false;
         openFor(viewers, replacements);
+        this.shouldUpdateTitle = true;
     }
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
-    static GuiPage create(GuiInstance guiInstance, String title, int rows, InventoryType type) {
+    GuiPage(GuiInstance guiInstance, String title, int rows, InventoryType type) {
         String menuTitle = null;
         InventoryType menuType = null;
         int menuRows = -1;
-
-        GuiPage menu = new GuiPage();
 
         ///////////////////////////////////////////////////////////////////////////////////
         Inventory base;
         if (type != null) {
             menuType = type;
             if (title != null) {
-                base = Bukkit.createInventory(menu, type, title);
+                base = Bukkit.createInventory(this, type, title);
                 menuTitle = title;
             } else {
-                base = Bukkit.createInventory(menu, type);
+                base = Bukkit.createInventory(this, type);
             }
         } else {
             menuRows = rows;
             if (title != null) {
-                base = Bukkit.createInventory(menu, rows*9, title);
+                base = Bukkit.createInventory(this, rows*9, title);
                 menuTitle = title;
             } else {
-                base = Bukkit.createInventory(menu, rows*9);
+                base = Bukkit.createInventory(this, rows*9);
             }
         }
         ///////////////////////////////////////////////////////////////////////////////////
 
-        if (menuTitle != null && menuTitle.contains("%")) menu.shouldUpdateTitle = true;
+        if (menuTitle != null && menuTitle.contains("%")) this.shouldUpdateTitle = true;
 
-        menu.inventory = base;
-        menu.guiInstance = guiInstance;
-        menu.rows = menuRows;
-        menu.title = menuTitle;
-        menu.type = menuType;
-
-        return menu;
+        this.inventory = base;
+        this.guiInstance = guiInstance;
+        this.rows = menuRows;
+        this.title = menuTitle;
+        this.type = menuType;
     }
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////

@@ -1,8 +1,0 @@
-name: MegaCoreV2
-version: "0.0.1"
-author: MegaCrafter
-main: com.objectvolatile.megacorev2.MegaCore
-description: MegaCore
-commands:
-  megacore:
-    description: MegaCore Main Command

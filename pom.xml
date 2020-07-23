@@ -20,5 +20,41 @@
     <groupId>com.objectvilatile.megacorev2</groupId>
     <artifactId>MegaCoreV2</artifactId>
     <version>0.0.1</version>
+    <modules>
+        <module>AbstractionAPI</module>
+    </modules>
+
+    <repositories>
+        <repository>
+            <id>spigotmc-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot</artifactId>
+            <version>1.14-R0.1-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.eclipsesource.minimal-json</groupId>
+            <artifactId>minimal-json</artifactId>
+            <version>0.9.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+            <version>2.0.1.Final</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.objectvolatile.abstractionapi</groupId>
+            <artifactId>api</artifactId>
+            <version>1.0</version>
+        </dependency>
+    </dependencies>
 
 </project>

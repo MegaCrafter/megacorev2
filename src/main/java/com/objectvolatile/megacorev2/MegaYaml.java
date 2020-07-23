@@ -1,5 +1,6 @@
 package com.objectvolatile.megacorev2;
 
+import com.objectvolatile.megacorev2.util.MUtils;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
@@ -23,13 +24,14 @@ public class MegaYaml {
 
     public MegaYaml loaded() {
         if (isResource) {
-            plugin.saveResource(filePath, false);
+            MUtils.saveResourceSilent(plugin, filePath);
         }
 
         file = new File(plugin.getDataFolder(), filePath);
         if (!file.exists()) {
             try {
                 plugin.getDataFolder().mkdir();
+                file.getParentFile().mkdir();
                 file.createNewFile();
             } catch (IOException e) {
                 e.printStackTrace();

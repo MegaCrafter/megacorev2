@@ -23,9 +23,9 @@ public class PlaceholderString {
     public String applied() {
         String[] split = (base + " ").split(symbol+"");
         // If split ends with the symbol, it doesnt count one more but it counts for the first no matter what
-        // interesting but should be avoided
+        // interesting but should be taken into action
 
-        for (int i = 1; i < split.length - 1; i++) { // Dont count the first and the last parts (as they wont be embraced)
+        for (int i = 1; i < split.length - 1; i++) { // Dont count the first and the last parts (as they cant be embraced)
             String part = split[i];
             Object match = placeholderMap.get(part);
             if (match instanceof String) {

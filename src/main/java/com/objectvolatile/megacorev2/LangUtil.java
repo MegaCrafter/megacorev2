@@ -1,29 +1,41 @@
 package com.objectvolatile.megacorev2;
 
-import com.objectvolatile.megacorev2.util.IOUtils;
 import com.objectvolatile.megacorev2.util.MUtils;
-import com.objectvolatile.megacorev2.util.oop.ColoredString;
+import com.objectvolatile.megacorev2.util.lang.ActionInfo;
+import com.objectvolatile.megacorev2.util.lang.LangMessage;
 import com.objectvolatile.megacorev2.util.oop.ConfMapOf;
 import com.objectvolatile.megacorev2.util.oop.PlaceholderString;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import java.io.*;
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.*;
 import java.util.logging.Level;
 
-public class LangUtil {
+public final class LangUtil {
 
-    private Plugin plugin;
+    private final Plugin plugin;
     private final String filePrefix;
+
     private File readFile;
     private FileConfiguration read;
 
-    private String langOption;
-    private String placeholderFile;
+    private final String langOption;
+    private final String placeholderFile;
+
+    private AbstractionUtil abstraction = new AbstractionUtil();
+
+    private Map<String, LangMessage> messageMap = new HashMap<>();
+
+    public LangUtil(Plugin plugin, String... defaultMessageFiles) {
+        this(plugin, "placeholders.yml", "lang_", defaultMessageFiles);
+    }
 
     public LangUtil(Plugin plugin, String placeholderFile, String filePrefix, String... defaultMessageFiles) {
         this(plugin, "lang", placeholderFile, filePrefix, defaultMessageFiles);
@@ -42,73 +54,48 @@ public class LangUtil {
     }
 
     public void sendText(CommandSender cs, String field, String... replacements) {
-        List<String> textList = read.getStringList(field);
-        String text = read.getString(field);
-        if (textList.isEmpty()) {
-            if (text == null) {
-                throw new IllegalArgumentException("Message field " + field + " could not be found for " + plugin.getName() + "!");
-            }
-        }
+        messageMap.get(field).sendTo(cs, replacements);
+    }
+    public void sendTextWithAction(CommandSender cs, String field, ActionInfo[] infos, String... replacements) {
+        messageMap.get(field).sendWithAction(cs, infos, replacements);
+    }
 
-        // "&cBir başarım kazandınız!@subtitle:2:2:2" type : fadein : dur : fadeout
+    public void sendText(Iterable<? extends OfflinePlayer> cs, String field, String... replacements) {
+        messageMap.get(field).sendTo(cs, replacements);
+    }
+    public void sendTextWithAction(Iterable<? extends OfflinePlayer> cs, String field, ActionInfo[] infos, String... replacements) {
+        messageMap.get(field).sendWithAction(cs, infos, replacements);
+    }
 
-        int i = 0;
-        int size = textList.size();
-        do {
-            if (i < size) text = textList.get(i); // only if we are dealing with a list
+    public void sendText(UUID uuid, String field, String... replacements) {
+        messageMap.get(field).sendTo(Bukkit.getPlayer(uuid), replacements);
+    }
+    public void sendTextWithAction(UUID uuid, String field, ActionInfo[] infos, String... replacements) {
+        messageMap.get(field).sendWithAction(Bukkit.getPlayer(uuid), infos, replacements);
+    }
 
-            String titleText = "";
+    public void broadcastText(String field, String... replacements) {
+        messageMap.get(field).sendTo(Bukkit.getOnlinePlayers(), replacements);
+    }
+    public void broadcastTextWithAction(String field, ActionInfo[] infos, String... replacements) {
+        messageMap.get(field).sendWithAction(Bukkit.getOnlinePlayers(), infos, replacements);
+    }
 
-            text = MUtils.fastReplace(text, replacements);
+    public List<String> getRawString(String field, String... replacements) {
+        return messageMap.get(field).getRawString(replacements);
+    }
 
-            String[] split = text.split("@");
+    public int maxPageFor(String fieldPrefix) {
+        String maxPage = messageMap.keySet().stream()
+                .filter(str -> str.startsWith(fieldPrefix))
+                .max(Comparator.comparingInt(o -> Integer.parseInt(o.substring(fieldPrefix.length() + 1))))
+                .orElse(fieldPrefix + "-0");
 
-            process:
-            if (cs instanceof Player && split.length != 0 && split.length != 1) {
-                titleText = text.substring(0, text.length() - split[split.length - 1].length()-1);
-
-                Player p = (Player) cs;
-
-                String info = split[split.length - 1];
-                String[] infopart = info.split(":");
-                if (infopart.length < 1) break process;
-
-                switch (infopart[0]) {
-                    case "title":
-                        if (infopart.length != 4) break process;
-
-                        int fadeIn, dur, fadeOut;
-
-                        try {
-                            fadeIn = Integer.parseInt(infopart[1]);
-                            dur = Integer.parseInt(infopart[2]);
-                            fadeOut = Integer.parseInt(infopart[3]);
-                        } catch (NumberFormatException e) {
-                            break process;
-                        }
-
-                        String[] titleTextSplit = titleText.split("\\|");
-                        String t = titleTextSplit[0];
-                        String st = "";
-                        if (titleTextSplit.length == 2) st = titleTextSplit[1];
-
-                        MegaCore.sendTitle(t, st, p, fadeIn, dur, fadeOut);
-                        continue;
-                    case "actionbar":
-                        MegaCore.sendActionbar(titleText, p);
-                        continue;
-                    default:
-                        break process;
-                }
-            }
-
-            cs.sendMessage(new ColoredString(text).applied());
-        } while (++i < size);
+        return Integer.parseInt(maxPage.substring(fieldPrefix.length()+1));
     }
 
     private void saveDefaultFiles(String... fileNames) {
-        File messagesFolder = new File(plugin.getDataFolder()+"/messages");
-        messagesFolder.mkdir();
+        plugin.getDataFolder().mkdir();
 
         for (String name : fileNames) {
             if (!name.startsWith(filePrefix)) {
@@ -117,20 +104,7 @@ public class LangUtil {
                 continue;
             }
 
-            File file = new File(messagesFolder, name);
-            if (file.exists()) continue;
-
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            try {
-                IOUtils.copyContents(plugin.getResource(name), new FileOutputStream(file));
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            }
+            MUtils.saveResourceSilent(plugin, name);
         }
     }
 
@@ -138,10 +112,10 @@ public class LangUtil {
         String lang = plugin.getConfig().getString(langOption);
 
         if (lang == null) {
-            throw new IllegalStateException("LangUtil could not find 'lang' option in config.yml of " + plugin.getName());
+            throw new IllegalStateException("LangUtil could not find '" + langOption + "' option in config.yml of " + plugin.getName());
         }
 
-        readFile = new File(plugin.getDataFolder()+"/messages/"+filePrefix+lang+".yml");
+        readFile = new File(plugin.getDataFolder(), filePrefix+lang+".yml");
 
         if (!readFile.exists()) throw new IllegalArgumentException("Lang file " + filePrefix+lang+".yml could not be found for " + plugin.getName() + "!");
 
@@ -156,13 +130,13 @@ public class LangUtil {
                     listValue.set(i, new PlaceholderString(listValue.get(i), placeholders).applied());
                 }
 
-                read.set(key, listValue);
+                messageMap.put(key, new LangMessage(abstraction, listValue));
                 continue;
             }
 
             String value = read.getString(key);
             if (value != null) { // So it is not a configuration section
-                read.set(key, new PlaceholderString(value, placeholders).applied());
+                messageMap.put(key, new LangMessage(abstraction, new PlaceholderString(value, placeholders).applied()));
             }
         }
     }

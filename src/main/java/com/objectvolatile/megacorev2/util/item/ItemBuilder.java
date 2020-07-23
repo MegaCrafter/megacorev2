@@ -1,5 +1,6 @@
-package com.objectvolatile.megacorev2.util;
+package com.objectvolatile.megacorev2.util.item;
 
+import com.objectvolatile.megacorev2.util.MUtils;
 import com.objectvolatile.megacorev2.util.oop.ColoredList;
 import com.objectvolatile.megacorev2.util.oop.ColoredString;
 import org.bukkit.Material;
@@ -45,6 +46,9 @@ public class ItemBuilder {
 
     public ItemBuilder material(String matName) {
         this.mat = Material.matchMaterial(matName);
+        if (this.mat == null) {
+            throw new IllegalArgumentException("Material name '"+matName+"' could not be resolved!");
+        }
         return this;
     }
     ///////////////////////////////////////////////////////////////////////////////////

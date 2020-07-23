@@ -12,6 +12,8 @@ public class ColoredList {
     }
 
     public List<String> applied() {
+        if (list == null) return null;
+
         List<String> safe = new ArrayList<>(list);
 
         for (int size = safe.size(), i = 0; i < size; i++) {

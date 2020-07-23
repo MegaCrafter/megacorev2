@@ -1,6 +1,6 @@
 package com.objectvolatile.megacorev2;
 
-import com.objectvolatile.megacorev2.util.ItemEditor;
+import com.objectvolatile.megacorev2.util.item.ItemEditor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -8,17 +8,20 @@ import org.bukkit.plugin.Plugin;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ItemRegistry {
+public final class ItemRegistry {
 
-    private Map<String, RegisteredItem> REGISTRY = new HashMap<>();
+    private final Map<String, RegisteredItem> REGISTRY = new HashMap<>();
+    private final Map<String, ItemStack> MANUAL_REG = new HashMap<>();
 
+    private MegaYaml yaml;
     private FileConfiguration cfg;
 
-    private Plugin plugin;
-    public ItemRegistry(Plugin plugin, String itemsFilePath) {
-        this.plugin = plugin;
+    public ItemRegistry(Plugin plugin) {
+        this(plugin, "items.yml");
+    }
 
-        this.cfg = new MegaYaml(plugin, itemsFilePath, true).loaded().options();
+    public ItemRegistry(Plugin plugin, String itemsFilePath) {
+        this.yaml = new MegaYaml(plugin, itemsFilePath, true);
 
         cacheItems();
 
@@ -26,7 +29,7 @@ public class ItemRegistry {
     }
 
     public void cacheItems() {
-        if (cfg == null) throw new IllegalStateException("Items file was not registered!");
+        this.cfg = this.yaml.loaded().options();
 
         REGISTRY.clear();
 
@@ -43,12 +46,23 @@ public class ItemRegistry {
         REGISTRY.remove(key);
     }
 
+    public void registerItem(String key, ItemStack item) {
+        MANUAL_REG.put(key, item);
+    }
+
     public ItemStack getItem(String key, String... replacements) {
         if (replacements.length == 0) {
-            RegisteredItem regItem = REGISTRY.get(key);
-            if (regItem == null) throw new IllegalArgumentException(key + " is invalid!");
+            ItemStack item = MANUAL_REG.get(key);
+            if (item == null) {
+                RegisteredItem regItem = REGISTRY.get(key);
+                if (regItem == null) {
+                    throw new IllegalArgumentException(key + " is invalid!");
+                }
 
-            return regItem.item().clone();
+                return regItem.item().clone();
+            }
+
+            return item.clone();
         } else {
             return ItemEditor.edit(getItem(key)).replaceAll(replacements).finish();
         }

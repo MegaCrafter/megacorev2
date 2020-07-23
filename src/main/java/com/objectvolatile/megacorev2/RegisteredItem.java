@@ -1,6 +1,6 @@
 package com.objectvolatile.megacorev2;
 
-import com.objectvolatile.megacorev2.util.ItemBuilder;
+import com.objectvolatile.megacorev2.util.item.ItemBuilder;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.ItemStack;
 
@@ -28,7 +28,7 @@ public class RegisteredItem {
                     .amount((short) cfg.getInt(headField + ".amount", 1))
                     .name(cfg.getString(headField + ".name"))
                     .lore(cfg.getStringList(headField + ".lore"))
-                    .glow(cfg.getBoolean("glow", false))
+                    .glow(cfg.getBoolean(headField + ".glow", false))
                     .enchants(cfg.getStringList(headField + ".enchants"))
                     .build();
         }

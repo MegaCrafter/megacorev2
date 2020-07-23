@@ -2,9 +2,13 @@ package com.objectvolatile.megacorev2.gui;
 
 import com.objectvolatile.megacorev2.ItemRegistry;
 import com.objectvolatile.megacorev2.MegaYaml;
+import com.objectvolatile.megacorev2.gui.info.ButtonInformation;
+import com.objectvolatile.megacorev2.gui.info.ClickInformation;
+import com.objectvolatile.megacorev2.gui.info.OptionButtonInformation;
 import com.objectvolatile.megacorev2.util.MUtils;
 import com.objectvolatile.megacorev2.util.oop.Clamped;
 import com.objectvolatile.megacorev2.util.oop.ColoredString;
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -21,8 +25,9 @@ public abstract class GuiInstance {
     private Map<ItemStack, String[]> exItemReplacements;
     private String[] defaultReplacements;
 
-    private Plugin plugin;
-    private Object dataHolder;
+    private Map<String, String> fieldCommands;
+
+    private final Plugin plugin;
 
     private int minimumPageCount;
     private int externalFirst;
@@ -33,22 +38,33 @@ public abstract class GuiInstance {
     private int rows = 0;
     private InventoryType type = null;
 
+    protected boolean canPutItems = false;
+
+    private Object dataHolder = null;
+
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
     public GuiInstance(Plugin plugin, String confName) {
-        this(plugin, confName, null);
+        this(plugin, new MegaYaml(plugin, confName, true).loaded().options());
+    }
+
+    public GuiInstance(Plugin plugin, FileConfiguration guiConf) {
+        this.plugin = plugin;
+
+        this.fieldCommands = new HashMap<>();
+
+        initPages(guiConf);
     }
 
     public GuiInstance(Plugin plugin, String confName, Object dataHolder) {
         this(plugin, new MegaYaml(plugin, confName, true).loaded().options(), dataHolder);
     }
 
-    public GuiInstance(Plugin plugin, FileConfiguration guiConf) {
-        this(plugin, guiConf, null);
-    }
-
     public GuiInstance(Plugin plugin, FileConfiguration guiConf, Object dataHolder) {
         this.plugin = plugin;
+
+        this.fieldCommands = new HashMap<>();
+
         this.dataHolder = dataHolder;
 
         initPages(guiConf);
@@ -58,12 +74,35 @@ public abstract class GuiInstance {
 
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
-    public Plugin plugin() {
+    public final Plugin plugin() {
         return plugin;
     }
 
+    public final GuiPage page(int page) { return pages.get(page); }
+
     public Object dataHolder() {
         return dataHolder;
+    }
+
+    public final void addExternalItem(ItemStack item) {
+        externalItems.add(item);
+    }
+
+    public final void clearExternalItems() { externalItems.clear(); }
+
+    public final void removeExternalItem(ItemStack item) {
+        externalItems.remove(item);
+    }
+
+    public final boolean nextExternalCreatesPage() {
+        int maxItems = pages.size() * externalLimit;
+
+        // Gui initially has some pages independent from external items
+        // so we get the max items we can put in those independent pages.
+        // If the gui holds the max number of items it will create a dependent page
+        // to put the next item. So return true.
+
+        return externalItems.size() == maxItems;
     }
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
@@ -74,11 +113,47 @@ public abstract class GuiInstance {
         openFor(p, 0, replacements);
     }
 
-    public final void openFor(Player p, int pageIndex, String... replacements) {
+    public void openFor(Player p, int pageIndex, String... replacements) {
+        openFor(p, pageIndex, true, replacements);
+    }
+
+    public final void openFor(Player p, boolean update, String... replacements) {
+        openFor(p, 0, update, replacements);
+    }
+
+    public void openFor(Player p, int pageIndex, boolean update, String... replacements) {
         this.defaultReplacements = replacements;
 
         updatePages();
-        pages.get(pageIndex).openFor(p, replacements);
+
+        GuiPage page = pages.get(pageIndex);
+        page.openFor(p, update, replacements);
+
+        handleOpen(p, page);
+    }
+
+    public final synchronized void closeForAll() {
+        for (GuiPage page : pages) {
+            page.closeForAll();
+        }
+    }
+
+    public final void updateOptionItem(String field, String... replacements) {
+        for (GuiPage page : pages) {
+            page.updateOptionItem(field, replacements);
+        }
+    }
+
+    public final void updateFully(String... replacements) {
+        for (GuiPage page : pages) {
+            page.updateFully(replacements);
+        }
+    }
+
+    public final void setItem(String slotField, String itemField) {
+        for (GuiPage page : pages) {
+            page.setItem(slotField, itemField);
+        }
     }
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
@@ -100,7 +175,25 @@ public abstract class GuiInstance {
     }
 
     public abstract GuiResponse handleOptionButton(OptionButtonInformation info);
-    public abstract GuiResponse handleExternalItem(Player p, ItemStack item);
+    public abstract GuiResponse handleExternalItem(ButtonInformation info);
+    public abstract GuiResponse handleOtherInventory(ClickInformation info);
+    public String[] getCommandReplacements() { return new String[0]; }
+    public void handleOpen(Player p, GuiPage page) { }
+    public void handleClose(Player p, GuiPage page) { }
+
+    final void applyCommand(Player p, String field) {
+        String command = fieldCommands.get(field);
+        if (command == null) return;
+
+        String[] otherRep = getCommandReplacements();
+        String[] replacements = new String[otherRep.length + 2];
+        replacements[0] = "%player%";
+        replacements[1] = p.getName();
+
+        System.arraycopy(otherRep, 0, replacements, 2, otherRep.length);
+
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), MUtils.fastReplace(command, replacements));
+    }
     ///////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////
 
@@ -146,7 +239,7 @@ public abstract class GuiInstance {
         pages.ensureCapacity(pages.size() + count);
 
         for (int i = 0; i < count; i++) {
-            GuiPage page = GuiPage.create(this, MUtils.fastReplace(title, "%page%", ""+(pages.size() + 1)), rows, type);
+            GuiPage page = new GuiPage(this, MUtils.fastReplace(title, "%page%", ""+(pages.size() + 1)), rows, type);
 
             for (Map.Entry<Integer, SlotItemFieldPair> npEntry : nopageSlots.entrySet()) {
                 if (i == 0 && npEntry.getValue().slotField().equals("prev page")) continue; // no prev page on first page
@@ -267,6 +360,16 @@ public abstract class GuiInstance {
                     y = new Clamped<>(y, 0, rows-1).value();
 
                     mapToPut.put(pageIndex*invSize + y*9 + x, sifPair);
+                }
+
+                String command = optionButtons.getString(slotField+".command");
+
+                if (command != null) {
+                    if (!command.startsWith("/")) {
+                        command = "/" + command;
+                    }
+
+                    fieldCommands.put(slotField, command);
                 }
             }
         }

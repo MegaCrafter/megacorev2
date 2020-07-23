@@ -2,6 +2,6 @@ package com.objectvolatile.megacorev2.gui;
 
 public enum GuiResponse {
 
-    CANCEL, ALLOW,
+    CANCEL, ALLOW, NOT_HANDLED,
 
 }

@@ -13,6 +13,8 @@ public class ColoredString {
     }
 
     public String applied() {
+        if (string == null) return null;
+
         return ChatColor.translateAlternateColorCodes(TRANSLATECHAR, string);
     }
 }

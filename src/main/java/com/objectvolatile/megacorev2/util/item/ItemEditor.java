@@ -1,7 +1,9 @@
-package com.objectvolatile.megacorev2.util;
+package com.objectvolatile.megacorev2.util.item;
 
+import com.objectvolatile.megacorev2.util.MUtils;
 import com.objectvolatile.megacorev2.util.oop.ColoredList;
 import com.objectvolatile.megacorev2.util.oop.ColoredString;
+import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -14,6 +16,8 @@ public class ItemEditor {
 
     private ItemStack baseItem;
 
+    private Material material;
+    private int amount;
     private String toName = null;
     private List<String> toLore = null;
     private boolean glowing = false;
@@ -23,14 +27,15 @@ public class ItemEditor {
 
         this.baseItem = baseItem;
 
-        if (baseItem.hasItemMeta()) {
-            if (baseItem.getItemMeta().hasDisplayName()) {
-                toName = baseItem.getItemMeta().getDisplayName();
-            }
+        this.material = baseItem.getType();
+        this.amount = baseItem.getAmount();
 
-            if (baseItem.getItemMeta().hasLore()) {
-                toLore = baseItem.getItemMeta().getLore();
-            }
+        if (baseItem.getItemMeta().hasDisplayName()) {
+            toName = baseItem.getItemMeta().getDisplayName();
+        }
+
+        if (baseItem.getItemMeta().hasLore()) {
+            toLore = baseItem.getItemMeta().getLore();
         }
     }
 
@@ -43,26 +48,37 @@ public class ItemEditor {
     }
 
     public ItemStack finish() {
-        if (baseItem.hasItemMeta()) {
-            ItemMeta meta = baseItem.getItemMeta();
+        baseItem.setType(material);
+        baseItem.setAmount(amount);
 
-            if (toName != null) {
-                meta.setDisplayName(toName);
-            }
+        ItemMeta meta = baseItem.getItemMeta();
 
-            if (toLore != null) {
-                meta.setLore(toLore);
-            }
-
-            if (glowing) {
-                meta.addEnchant(Enchantment.DAMAGE_ALL, 1, true);
-                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-            }
-
-            baseItem.setItemMeta(meta);
+        if (toName != null) {
+            meta.setDisplayName(toName);
         }
 
+        if (toLore != null) {
+            meta.setLore(toLore);
+        }
+
+        if (glowing) {
+            meta.addEnchant(Enchantment.DAMAGE_ALL, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
+
+        baseItem.setItemMeta(meta);
+
         return baseItem;
+    }
+
+    public ItemEditor changeType(Material material) {
+        this.material = material;
+        return this;
+    }
+
+    public ItemEditor changeAmount(int amount) {
+        this.amount = amount;
+        return this;
     }
 
     public ItemEditor changeNameTo(String name) {
@@ -89,6 +105,17 @@ public class ItemEditor {
         return this;
     }
 
+    public ItemEditor removeLoreLines(int lineCount) {
+        if (this.toLore == null) return this;
+
+        for (int i = this.toLore.size() - 1; i >= 0 && lineCount > 0; i--) {
+            this.toLore.remove(i);
+            lineCount--;
+        }
+
+        return this;
+    }
+
     public ItemEditor addToLore(String... lore) {
         return addToLore(Arrays.asList(lore));
     }
@@ -106,6 +133,8 @@ public class ItemEditor {
             String itemname = baseItem.getItemMeta().getDisplayName();
 
             this.toName = itemname;
+
+            if (this.toName == null) this.toName = "";
         }
 
         this.toName = MUtils.fastReplace(this.toName, replacements);

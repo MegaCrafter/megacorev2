@@ -1,5 +1,6 @@
 package com.objectvolatile.megacorev2.chat;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -11,11 +12,16 @@ public class ChatControlEvent implements Listener {
 
     @EventHandler
     public void onChat(AsyncPlayerChatEvent event) {
-        BiConsumer<Player, String> controller = ChatControlUtil.controllingPlayers.get(event.getPlayer());;
+        ChatController cont = ChatControlUtil.controllingPlayers.get(event.getPlayer());
+        if (cont == null) return;
+
+        BiConsumer<Player, String> controller = cont.controller();;
         if (controller != null) {
             event.setCancelled(true);
 
-            controller.accept(event.getPlayer(), event.getMessage());
+            Bukkit.getScheduler().runTask(cont.plugin(), () -> {
+                controller.accept(event.getPlayer(), event.getMessage());
+            });
         }
     }
 

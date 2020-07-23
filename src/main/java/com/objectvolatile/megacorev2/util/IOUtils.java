@@ -1,6 +1,7 @@
 package com.objectvolatile.megacorev2.util;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 
 public class IOUtils {
 
@@ -8,8 +9,8 @@ public class IOUtils {
 
     public static void copyContents(InputStream is, OutputStream os) {
         try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8));
 
             String line;
             while ((line = reader.readLine()) != null) {
